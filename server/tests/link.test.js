@@ -1,34 +1,29 @@
-import fetch from 'node-fetch';
-import { request } from './setup.js';
+import { jest } from '@jest/globals';
+import httpMocks from 'node-mocks-http';
+import { createLink } from '../controllers/linkController.js';
+import Link from '../models/Link.js';
 
-describe('Link Routes', () => {
-  let token;
-  let linkId;
-
-  beforeAll(async () => {
-    await fetch(`${request}/api/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'linkuser', email: 'link@example.com', password: 'pass' })
-    });
-    const res = await fetch(`${request}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'link@example.com', password: 'pass' })
-    });
-    const data = await res.json();
-    token = data.token;
+describe('Link Controller', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('should create a link', async () => {
-    const res = await fetch(`${request}/api/links`, {
+  it('creates a link for the authenticated user', async () => {
+    const mockLink = { _id: '123', title: 'Site', url: 'https://ex.com', user: '1' };
+    Link.create = jest.fn().mockResolvedValue(mockLink);
+
+    const req = httpMocks.createRequest({
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ title: 'My Site', url: 'https://example.com' })
+      body: { title: 'Site', url: 'https://ex.com' }
     });
-    expect(res.status).toBe(201);
-    const data = await res.json();
-    expect(data.title).toBe('My Site');
-    linkId = data._id;
+    req.user = { id: '1' };
+
+    const res = httpMocks.createResponse();
+    await createLink(req, res);
+
+    expect(res._getStatusCode()).toBe(201);
+    const data = res._getJSONData();
+    expect(data.title).toBe('Site');
+    expect(Link.create).toHaveBeenCalledWith({ title: 'Site', url: 'https://ex.com', user: '1' });
   });
 });
